@@ -1,0 +1,135 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "zhoubolin0404"
+date: "2022/4/25"
+output: html_document
+keep_md: true
+---
+## Loading packages
+
+```{r}
+library(tidyverse)
+library(readr)
+```
+
+## Loading and preprocessing the data
+
+```{r}
+rm(list = ls())
+df <- read.csv("activity.csv")
+```
+
+## What is mean total number of steps taken per day?
+
+### Calculate the total number of steps taken per day
+
+```{r}
+library(tidyverse)
+total_steps <- aggregate(steps~date,data=df,FUN="sum") 
+view(total_steps)
+```
+
+### Make a histogram of the total number of steps taken each day
+
+```{r}
+library(tidyverse)
+ggplot(total_steps,aes(steps))+geom_histogram(binwidth = 500)
+```
+
+### Calculate and report the mean and median of the total number of steps taken per day
+
+```{r}
+mean(total_steps$steps)
+median(total_steps$steps)
+```
+
+Mean is 10766.19; Median is 10765.
+
+## What is the average daily activity pattern?
+
+### Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r}
+library(tidyverse)
+interval_steps <- aggregate(steps~interval,df,mean)
+ggplot(interval_steps,aes(interval,steps))+geom_line()+xlab("5-minute interval")+ylab("average number of steps taken")
+```
+
+### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+interval_steps[which.max(interval_steps$steps), ]
+```
+
+The interval of 835 contains the maximum number of steps.
+
+## Imputing missing values
+
+### Calculate and report the total number of missing values in the dataset 
+
+```{r}
+missing <- is.na(df)
+table(missing)
+```
+
+There are 2304 NAs.
+
+### Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated.Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+All of the missing values are filled in with mean value for that 5-minute interval.
+
+```{r}
+return_mean <- function(steps, interval) {
+    filled <- NA
+    if (!is.na(steps)) 
+        filled <- c(steps) else filled <- (interval_steps[interval_steps$interval == interval, "steps"])
+    return(filled)
+}
+filled_df <- df
+filled_df$steps <- mapply(return_mean, filled_df$steps, filled_df$interval)
+```
+
+### Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+library(tidyverse)
+filled_steps <- aggregate(steps~date,data=filled_df,FUN="sum")
+ggplot(filled_steps,aes(steps))+geom_histogram(binwidth = 500)
+mean(filled_steps$steps)
+median(filled_steps$steps)
+```
+
+After filled in with mean value for that 5-minute interval, Mean is 10766.19; Median is 10766.19.
+The median varies, while the mean is the same. This is because the mean is used instead of the missing values, and the median is not much different from the mean when the missing values are ignored.
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+Distinguish whether it is a weekend or not.
+
+```{r}
+library(tidyverse)
+Sys.setlocale("LC_TIME", "English")
+weekdays(Sys.Date()+0:6,abbreviate = T)
+week_day_end <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")) 
+        return("weekday") else if (day %in% c("Saturday", "Sunday")) 
+        return("weekend") else stop("invalid date")
+}
+filled_df$date <- as.Date(filled_df$date)
+week_df <- filled_df %>%
+    mutate(day=sapply(filled_df$date,week_day_end))
+```
+
+Calculate the total number of steps taken
+
+```{r}
+week_steps <- week_df %>% 
+    aggregate(steps~interval+day,data=.,mean)
+ggplot(week_steps, aes(interval, steps))+
+    geom_line()+
+    facet_grid(day ~ .)
+```
+
+
+
